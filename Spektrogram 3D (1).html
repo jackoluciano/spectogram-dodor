@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spektrogram 3D</title>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#fff;--fg:#1f2430;--mut:#6b7280;--card:#f4f5f8;--bd:#d9dce4;--ac:#3b5bdb}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161c;--fg:#e8eaf0;--mut:#9aa1b2;--card:#1d2029;--bd:#323746;--ac:#7c93ff}}
+:root[data-theme="dark"]{--bg:#14161c;--fg:#e8eaf0;--mut:#9aa1b2;--card:#1d2029;--bd:#323746;--ac:#7c93ff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 4px}
+p{margin:0 0 12px;color:var(--mut);font-size:13px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
+select,input[type=file]{background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:6px;font-size:13px;max-width:100%}
+#plot{width:100%;height:min(70vh,560px);border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+#st{font-size:12px;color:var(--mut);margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+<h1>Spektrogram 3D</h1>
+<p>Sumbu X = waktu (s), Y = frekuensi (Hz), Z = magnitudo (dB). Seret untuk memutar, scroll untuk zoom.</p>
+<div class="bar">
+<label>Sinyal
+<select id="sig"><option value="chirp">Chirp + nada 1 kHz</option><option value="tones">Nada putus-putus</option><option value="siren">Sirene (FM)</option></select></label>
+<label>Ukuran jendela FFT
+<select id="win"><option>256</option><option selected>512</option><option>1024</option></select></label>
+<label>Atau unggah audio<input type="file" id="file" accept="audio/*"></label>
+</div>
+<div id="plot"></div>
+<div id="st"></div>
+</main>
+<script>
+function fft(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]];}}
+for(let len=2;len<=n;len<<=1){const a=-2*Math.PI/len,wr=Math.cos(a),wi=Math.sin(a);for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let k=0;k<len/2;k++){const u=i+k,v=u+len/2;const tr=re[v]*cr-im[v]*ci,ti=re[v]*ci+im[v]*cr;re[v]=re[u]-tr;im[v]=im[u]-ti;re[u]+=tr;im[u]+=ti;const t=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=t;}}}}
+
+function stft(x,fs,N,maxF){
+  const frames=Math.min(110,Math.floor((x.length-N)/64)+1),hop=Math.max(1,Math.floor((x.length-N)/Math.max(1,frames-1)));
+  const hann=new Float32Array(N).map((_,i)=>0.5-0.5*Math.cos(2*Math.PI*i/(N-1)));
+  const nb=Math.min(N/2,Math.floor(maxF/(fs/N)));
+  const t=[],f=[],M=[];let peak=1e-12;
+  for(let k=0;k<nb;k++)f.push(k*fs/N);
+  for(let m=0;m<frames;m++){
+    const re=new Float64Array(N),im=new Float64Array(N),s=m*hop;
+    for(let i=0;i<N;i++)re[i]=(x[s+i]||0)*hann[i];
+    fft(re,im);
+    const col=[];for(let k=0;k<nb;k++){const a=Math.hypot(re[k],im[k]);col.push(a);if(a>peak)peak=a;}
+    M.push(col);t.push((s+N/2)/fs);
+  }
+  // z[freq][time] dalam dB relatif terhadap puncak, dibatasi -80 dB
+  const z=f.map((_,k)=>M.map(c=>Math.max(-80,20*Math.log10(c[k]/peak+1e-12))));
+  return{t,f,z};
+}
+
+function gen(type,fs=8000,dur=3){
+  const n=fs*dur,x=new Float32Array(n);
+  for(let i=0;i<n;i++){const t=i/fs;let v=0;
+    if(type==='chirp'){const ph=2*Math.PI*(200*t+(3000-200)/(2*dur)*t*t);v=0.7*Math.sin(ph)+0.3*Math.sin(2*Math.PI*1000*t);}
+    else if(type==='tones'){const g=(t%1)<0.5;v=g?Math.sin(2*Math.PI*440*t)+0.6*Math.sin(2*Math.PI*1320*t):0.5*Math.sin(2*Math.PI*2200*t)*((t%1)>0.75?1:0);}
+    else{const ph=2*Math.PI*1500*t+600/0.8*Math.sin(2*Math.PI*0.8*t)*1.5;v=Math.sin(ph)+0.4*Math.sin(2*ph);}
+    x[i]=v+0.02*(Math.random()*2-1);}
+  return{x,fs};
+}
+
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function draw(d,fs){
+  if(typeof Plotly==='undefined'){document.getElementById('st').textContent='Plotly gagal dimuat dari CDN. Coba muat ulang halaman.';return;}
+  const fg=css('--fg'),bd=css('--bd');
+  const ax=(title)=>({title:{text:title},color:fg,gridcolor:bd,backgroundcolor:'rgba(0,0,0,0)',showbackground:false});
+  Plotly.react('plot',[{type:'surface',x:d.t,y:d.f,z:d.z,colorscale:'Viridis',cmin:-80,cmax:0,
+    colorbar:{title:{text:'dB'},len:.7,tickfont:{color:fg},titlefont:{color:fg}},
+    contours:{z:{show:true,usecolormap:true,project:{z:false}}},
+    hovertemplate:'t=%{x:.2f} s<br>f=%{y:.0f} Hz<br>%{z:.1f} dB<extra></extra>'}],
+  {paper_bgcolor:'rgba(0,0,0,0)',font:{color:fg},margin:{l:0,r:0,t:0,b:0},
+   scene:{xaxis:ax('Waktu (s)'),yaxis:ax('Frekuensi (Hz)'),zaxis:Object.assign(ax('Magnitudo (dB)'),{range:[-80,0]}),
+     aspectratio:{x:1.4,y:1.1,z:.7},camera:{eye:{x:1.6,y:-1.6,z:1.0}}}},
+  {responsive:true,displaylogo:false});
+  document.getElementById('st').textContent=`Fs = ${fs} Hz · ${d.t.length} frame · ${d.f.length} bin frekuensi · resolusi ≈ ${(fs/(+document.getElementById('win').value)).toFixed(1)} Hz`;
+}
+
+let cur=null;
+function run(){
+  const N=+document.getElementById('win').value;
+  if(!cur)cur=gen(document.getElementById('sig').value);
+  draw(stft(cur.x,cur.fs,N,Math.min(4000,cur.fs/2)),cur.fs);
+}
+document.getElementById('sig').onchange=()=>{cur=null;run();};
+document.getElementById('win').onchange=run;
+document.getElementById('file').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const buf=await ctx.decodeAudioData(await f.arrayBuffer());
+    const fs=buf.sampleRate,len=Math.min(buf.length,fs*6);
+    cur={x:buf.getChannelData(0).slice(0,len),fs};run();
+  }catch(err){document.getElementById('st').textContent='Gagal membaca audio: '+err.message;}
+};
+run();
+</script>
+</body>
+</html>
