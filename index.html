@@ -10,95 +10,161 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161c;--fg:#e8eaf0;--mut:#9aa1b2;--card:#1d2029;--bd:#323746;--ac:#7c93ff}}
 :root[data-theme="dark"]{--bg:#14161c;--fg:#e8eaf0;--mut:#9aa1b2;--card:#1d2029;--bd:#323746;--ac:#7c93ff}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:1000px;margin:0 auto;padding:16px}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1100px;margin:0 auto;padding:16px}
 h1{font-size:20px;margin:0 0 4px}
-p{margin:0 0 12px;color:var(--mut);font-size:13px}
-.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:12px}
-label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
-select,input[type=file]{background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:6px;font-size:13px;max-width:100%}
-#plot{width:100%;height:min(70vh,560px);border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+.sub{margin:0 0 12px;color:var(--mut);font-size:13px}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-bottom:12px}
+fieldset{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 12px 10px;margin:0;min-width:0}
+legend{font-weight:600;font-size:12px;color:var(--ac);padding:0 6px}
+.r{display:flex;align-items:center;gap:6px;margin:5px 0;flex-wrap:wrap}
+.r>span{color:var(--mut);font-size:12px;min-width:84px}
+.r label{display:flex;align-items:center;gap:5px}
+input[type=number],select{background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:13px;width:84px;max-width:100%}
+select{width:auto;min-width:84px}
+input[type=color]{width:34px;height:26px;padding:0;border:1px solid var(--bd);border-radius:6px;background:none}
+input[type=range]{width:120px;accent-color:var(--ac)}
+input[type=file]{font-size:12px;max-width:100%}
+button{background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer}
+#plot{width:100%;height:min(72vh,600px);border:1px solid var(--bd);border-radius:10px;overflow:hidden}
 #st{font-size:12px;color:var(--mut);margin-top:8px}
 </style>
 </head>
 <body>
 <main>
 <h1>Spektrogram 3D</h1>
-<p>Sumbu X = waktu (s), Y = frekuensi (Hz), Z = magnitudo (dB). Seret untuk memutar, scroll untuk zoom.</p>
-<div class="bar">
-<label>Sinyal
-<select id="sig"><option value="chirp">Chirp + nada 1 kHz</option><option value="tones">Nada putus-putus</option><option value="siren">Sirene (FM)</option></select></label>
-<label>Ukuran jendela FFT
-<select id="win"><option>256</option><option selected>512</option><option>1024</option></select></label>
-<label>Atau unggah audio<input type="file" id="file" accept="audio/*"></label>
+<p class="sub">X = waktu (s), Y = frekuensi (Hz), Z = magnitudo. Semua pengaturan langsung memperbarui plot. Seret untuk memutar, scroll untuk zoom.</p>
+
+<div class="panels">
+<fieldset><legend>Sinyal</legend>
+<div class="r"><span>Durasi (s)</span><input type="number" id="dur" value="3" min="0.5" max="60" step="0.5"></div>
+<div class="r"><span>Sample rate</span><select id="fs"><option>8000</option><option>16000</option><option>22050</option></select></div>
+<div class="r"><span>Bentuk gelombang</span><select id="wf"><option value="sine">Sinus</option><option value="square">Kotak</option><option value="saw">Gergaji</option><option value="tri">Segitiga</option></select></div>
+<div class="r"><label><input type="checkbox" id="cChirp" checked> Chirp</label><input type="number" id="f0" value="200" min="1"> →<input type="number" id="f1" value="3000" min="1"> Hz</div>
+<div class="r"><label><input type="checkbox" id="cTone"> Nada tetap (garis datar)</label><input type="number" id="ft" value="1000" min="1"> Hz</div>
+<div class="r"><label><input type="checkbox" id="cHarm"> Harmonik nada tetap</label></div>
+<div class="r"><label><input type="checkbox" id="cSiren"> Sirene (FM)</label></div>
+<div class="r"><label><input type="checkbox" id="cGate"> Putus-putus (on/off)</label></div>
+<div class="r"><span>Noise</span><input type="range" id="nz" min="0" max="0.3" step="0.01" value="0.02"></div>
+</fieldset>
+
+<fieldset><legend>Analisis &amp; rentang</legend>
+<div class="r"><span>Jendela FFT</span><select id="win"><option>256</option><option selected>512</option><option>1024</option><option>2048</option></select></div>
+<div class="r"><span>Maks. frame waktu</span><input type="number" id="nfr" value="100" min="20" max="200" step="10"></div>
+<div class="r"><span>Frekuensi (Hz)</span><input type="number" id="fmin" value="0" min="0"> –<input type="number" id="fmax" value="4000" min="10"></div>
+<div class="r"><span>Skala Z</span><select id="zmode"><option value="db">dB (relatif puncak)</option><option value="lin">Linear (0–1)</option></select></div>
+<div class="r"><span>Magnitudo (dB)</span><input type="number" id="dbmin" value="-80" max="-1"> –<input type="number" id="dbmax" value="0" max="40"></div>
+<div class="r"><span>Tinggi sumbu Z</span><input type="range" id="zh" min="0.2" max="1.6" step="0.1" value="0.7"></div>
+</fieldset>
+
+<fieldset><legend>Tampilan</legend>
+<div class="r"><span>Bentuk plot</span><select id="style"><option value="surf">Permukaan (surface)</option><option value="wire">Kisi (wireframe)</option><option value="ridge">Garis per waktu (ridgeline)</option><option value="pts">Titik 3D</option></select></div>
+<div class="r"><span>Warna</span><select id="cs"><option>Viridis</option><option>Plasma</option><option>Inferno</option><option>Magma</option><option>Cividis</option><option>Turbo</option><option>Jet</option><option>Hot</option><option>Portland</option><option>Electric</option><option>Blues</option><option>Greys</option><option value="custom">Kustom (3 warna)</option></select></div>
+<div class="r" id="cust" hidden><span>Bawah/Tengah/Atas</span><input type="color" id="c1" value="#0b1d51"><input type="color" id="c2" value="#00b4d8"><input type="color" id="c3" value="#ffd60a"></div>
+<div class="r"><label><input type="checkbox" id="rev"> Balik warna</label></div>
+<div class="r"><label><input type="checkbox" id="cont"> Garis kontur di permukaan</label></div>
+</fieldset>
+
+<fieldset><legend>Audio sendiri</legend>
+<div class="r"><input type="file" id="file" accept="audio/*,video/*,.mp4,.m4a,.mp3,.wav,.ogg,.oga,.opus,.webm,.flac,.aac,.mov,.3gp"></div>
+<div class="r"><span>Mulai dari (s)</span><input type="number" id="ofs" value="0" min="0" step="0.5"></div>
+<div class="r"><button id="clr" type="button">Kembali ke sinyal sintetis</button></div>
+<div class="r" style="color:var(--mut);font-size:12px">Mendukung WAV, MP3, M4A, MP4, OGG, WebM, FLAC, AAC, dll (tergantung codec browser). Yang dianalisis sepanjang "Durasi" (maks. 60 s untuk audio), mulai dari detik yang dipilih.</div>
+</fieldset>
 </div>
+
 <div id="plot"></div>
 <div id="st"></div>
 </main>
+
 <script>
+const $=id=>document.getElementById(id), css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function fft(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]];}}
-for(let len=2;len<=n;len<<=1){const a=-2*Math.PI/len,wr=Math.cos(a),wi=Math.sin(a);for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let k=0;k<len/2;k++){const u=i+k,v=u+len/2;const tr=re[v]*cr-im[v]*ci,ti=re[v]*ci+im[v]*cr;re[v]=re[u]-tr;im[v]=im[u]-ti;re[u]+=tr;im[u]+=ti;const t=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=t;}}}}
+for(let len=2;len<=n;len<<=1){const a=-2*Math.PI/len,wr=Math.cos(a),wi=Math.sin(a);for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let k=0;k<len/2;k++){const u=i+k,v=u+len/2,tr=re[v]*cr-im[v]*ci,ti=re[v]*ci+im[v]*cr;re[v]=re[u]-tr;im[v]=im[u]-ti;re[u]+=tr;im[u]+=ti;const t=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=t;}}}}
 
-function stft(x,fs,N,maxF){
-  const frames=Math.min(110,Math.floor((x.length-N)/64)+1),hop=Math.max(1,Math.floor((x.length-N)/Math.max(1,frames-1)));
-  const hann=new Float32Array(N).map((_,i)=>0.5-0.5*Math.cos(2*Math.PI*i/(N-1)));
-  const nb=Math.min(N/2,Math.floor(maxF/(fs/N)));
-  const t=[],f=[],M=[];let peak=1e-12;
-  for(let k=0;k<nb;k++)f.push(k*fs/N);
-  for(let m=0;m<frames;m++){
-    const re=new Float64Array(N),im=new Float64Array(N),s=m*hop;
-    for(let i=0;i<N;i++)re[i]=(x[s+i]||0)*hann[i];
-    fft(re,im);
-    const col=[];for(let k=0;k<nb;k++){const a=Math.hypot(re[k],im[k]);col.push(a);if(a>peak)peak=a;}
-    M.push(col);t.push((s+N/2)/fs);
-  }
-  // z[freq][time] dalam dB relatif terhadap puncak, dibatasi -80 dB
-  const z=f.map((_,k)=>M.map(c=>Math.max(-80,20*Math.log10(c[k]/peak+1e-12))));
-  return{t,f,z};
-}
+function wave(w,p){const r=p-Math.floor(p);if(w==='square')return r<.5?1:-1;if(w==='saw')return 2*r-1;if(w==='tri')return 4*Math.abs(r-.5)-1;return Math.sin(2*Math.PI*p);}
 
-function gen(type,fs=8000,dur=3){
-  const n=fs*dur,x=new Float32Array(n);
+function gen(fs,dur){
+  const n=Math.round(fs*dur),x=new Float32Array(n),w=$('wf').value,nz=+$('nz').value;
+  const f0=+$('f0').value,f1=+$('f1').value,ft=+$('ft').value;
   for(let i=0;i<n;i++){const t=i/fs;let v=0;
-    if(type==='chirp'){const ph=2*Math.PI*(200*t+(3000-200)/(2*dur)*t*t);v=0.7*Math.sin(ph)+0.3*Math.sin(2*Math.PI*1000*t);}
-    else if(type==='tones'){const g=(t%1)<0.5;v=g?Math.sin(2*Math.PI*440*t)+0.6*Math.sin(2*Math.PI*1320*t):0.5*Math.sin(2*Math.PI*2200*t)*((t%1)>0.75?1:0);}
-    else{const ph=2*Math.PI*1500*t+600/0.8*Math.sin(2*Math.PI*0.8*t)*1.5;v=Math.sin(ph)+0.4*Math.sin(2*ph);}
-    x[i]=v+0.02*(Math.random()*2-1);}
-  return{x,fs};
+    if($('cChirp').checked)v+=0.7*wave(w,f0*t+(f1-f0)/(2*dur)*t*t);
+    if($('cTone').checked){v+=0.5*wave(w,ft*t);if($('cHarm').checked)v+=0.25*wave(w,2*ft*t)+0.15*wave(w,3*ft*t);}
+    if($('cSiren').checked)v+=0.6*wave(w,1500*t-800/(2*Math.PI*0.8)*Math.cos(2*Math.PI*0.8*t));
+    if($('cGate').checked&&(t%1)>=0.5)v=0;
+    x[i]=v+nz*(Math.random()*2-1);}
+  return x;
 }
 
-const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-function draw(d,fs){
-  if(typeof Plotly==='undefined'){document.getElementById('st').textContent='Plotly gagal dimuat dari CDN. Coba muat ulang halaman.';return;}
-  const fg=css('--fg'),bd=css('--bd');
-  const ax=(title)=>({title:{text:title},color:fg,gridcolor:bd,backgroundcolor:'rgba(0,0,0,0)',showbackground:false});
-  Plotly.react('plot',[{type:'surface',x:d.t,y:d.f,z:d.z,colorscale:'Viridis',cmin:-80,cmax:0,
-    colorbar:{title:{text:'dB'},len:.7,tickfont:{color:fg},titlefont:{color:fg}},
-    contours:{z:{show:true,usecolormap:true,project:{z:false}}},
-    hovertemplate:'t=%{x:.2f} s<br>f=%{y:.0f} Hz<br>%{z:.1f} dB<extra></extra>'}],
-  {paper_bgcolor:'rgba(0,0,0,0)',font:{color:fg},margin:{l:0,r:0,t:0,b:0},
-   scene:{xaxis:ax('Waktu (s)'),yaxis:ax('Frekuensi (Hz)'),zaxis:Object.assign(ax('Magnitudo (dB)'),{range:[-80,0]}),
-     aspectratio:{x:1.4,y:1.1,z:.7},camera:{eye:{x:1.6,y:-1.6,z:1.0}}}},
-  {responsive:true,displaylogo:false});
-  document.getElementById('st').textContent=`Fs = ${fs} Hz · ${d.t.length} frame · ${d.f.length} bin frekuensi · resolusi ≈ ${(fs/(+document.getElementById('win').value)).toFixed(1)} Hz`;
+function stft(x,fs,N,fmin,fmax,maxFr,zmode,dbmin,dbmax){
+  if(x.length<N+1){const y=new Float32Array(N+1);y.set(x);x=y;}
+  const frames=Math.min(maxFr,x.length-N+1),hop=Math.max(1,Math.floor((x.length-N)/(frames-1)));
+  const df=fs/N,k0=Math.max(0,Math.ceil(fmin/df)),k1=Math.min(N/2-1,Math.floor(fmax/df));
+  if(k1-k0<2)throw new Error('Rentang frekuensi terlalu sempit untuk jendela FFT ini.');
+  const hann=new Float32Array(N).map((_,i)=>0.5-0.5*Math.cos(2*Math.PI*i/(N-1)));
+  const t=[],f=[],M=[];let peak=1e-12;
+  for(let k=k0;k<=k1;k++)f.push(k*df);
+  for(let m=0;m<frames;m++){const re=new Float64Array(N),im=new Float64Array(N),s=m*hop;
+    for(let i=0;i<N;i++)re[i]=(x[s+i]||0)*hann[i];
+    fft(re,im);const c=[];for(let k=k0;k<=k1;k++){const a=Math.hypot(re[k],im[k]);c.push(a);if(a>peak)peak=a;}
+    M.push(c);t.push((s+N/2)/fs);}
+  const cv=a=>zmode==='lin'?a/peak:Math.min(dbmax,Math.max(dbmin,20*Math.log10(a/peak+1e-12)));
+  return{t,f,z:f.map((_,j)=>M.map(c=>cv(c[j]))),df};
 }
 
-let cur=null;
+function scale(){if($('cs').value==='custom')return[[0,$('c1').value],[.5,$('c2').value],[1,$('c3').value]];return $('cs').value;}
+
+function render(d,fs,zmin,zmax,ztitle){
+  const fg=css('--fg'),bd=css('--bd'),cs=scale(),rev=$('rev').checked,st=$('style').value;
+  const cb={title:{text:ztitle,font:{color:fg}},tickfont:{color:fg},len:.7};
+  const col={colorscale:cs,reversescale:rev,cmin:zmin,cmax:zmax};
+  const line=(x,y,z,first)=>({type:'scatter3d',mode:'lines',x,y,z,hoverinfo:'skip',showlegend:false,line:Object.assign({width:4,color:z,showscale:!!first,colorbar:cb},col)});
+  let tr=[];const nT=d.t.length,nF=d.f.length;
+  if(st==='surf'){
+    tr=[{type:'surface',x:d.t,y:d.f,z:d.z,colorbar:cb,contours:{z:{show:$('cont').checked,usecolormap:true,project:{z:false}}},hovertemplate:'t=%{x:.2f} s<br>f=%{y:.0f} Hz<br>%{z:.2f}<extra></extra>',...col}];
+  }else if(st==='ridge'){
+    for(let m=0;m<nT;m++)tr.push(line(Array(nF).fill(d.t[m]),d.f,d.z.map(r=>r[m]),m===0));
+  }else if(st==='wire'){
+    const sT=Math.max(1,Math.ceil(nT/50)),sF=Math.max(1,Math.ceil(nF/50));let first=true;
+    for(let m=0;m<nT;m+=sT){tr.push(line(Array(nF).fill(d.t[m]),d.f,d.z.map(r=>r[m]),first));first=false;}
+    for(let j=0;j<nF;j+=sF)tr.push(line(d.t,Array(nT).fill(d.f[j]),d.z[j],false));
+  }else{
+    const X=[],Y=[],Z=[];for(let j=0;j<nF;j++)for(let m=0;m<nT;m++){X.push(d.t[m]);Y.push(d.f[j]);Z.push(d.z[j][m]);}
+    tr=[{type:'scatter3d',mode:'markers',x:X,y:Y,z:Z,hoverinfo:'skip',marker:Object.assign({size:2.2,color:Z,showscale:true,colorbar:cb},col)}];
+  }
+  const ax=(title,range)=>({title:{text:title},color:fg,gridcolor:bd,showbackground:false,range});
+  const cam=($('plot').layout&&$('plot').layout.scene&&$('plot').layout.scene.camera)||{eye:{x:1.6,y:-1.6,z:1.0}};
+  Plotly.react('plot',tr,{paper_bgcolor:'rgba(0,0,0,0)',font:{color:fg},margin:{l:0,r:0,t:0,b:0},showlegend:false,
+    scene:{xaxis:ax('Waktu (s)'),yaxis:ax('Frekuensi (Hz)',[d.f[0],d.f[nF-1]]),zaxis:ax(ztitle,[zmin,zmax]),aspectratio:{x:1.4,y:1.1,z:+$('zh').value},camera:cam}},
+    {responsive:true,displaylogo:false});
+}
+
+let audio=null,timer=null;
 function run(){
-  const N=+document.getElementById('win').value;
-  if(!cur)cur=gen(document.getElementById('sig').value);
-  draw(stft(cur.x,cur.fs,N,Math.min(4000,cur.fs/2)),cur.fs);
+  try{
+    if(typeof Plotly==='undefined'){$('st').textContent='Plotly gagal dimuat dari CDN. Coba muat ulang halaman.';return;}
+    const fs=audio?audio.fs:+$('fs').value,dur=Math.min(audio?60:10,Math.max(.5,+$('dur').value||3)),N=+$('win').value;
+    const o0=audio?Math.min(audio.x.length-1,Math.round(fs*Math.max(0,+$('ofs').value||0))):0;
+    const x=audio?audio.x.slice(o0,o0+Math.round(fs*dur)):gen(fs,dur);
+    const fmin=Math.max(0,+$('fmin').value||0),fmax=Math.min(fs/2,+$('fmax').value||4000);
+    const lin=$('zmode').value==='lin';let dbmin=+$('dbmin').value,dbmax=+$('dbmax').value;
+    if(!(dbmax>dbmin)){dbmin=dbmax-80;}
+    const d=stft(x,fs,N,fmin,fmax,Math.min(200,Math.max(20,+$('nfr').value||100)),lin?'lin':'db',dbmin,dbmax);
+    render(d,fs,lin?0:dbmin,lin?1:dbmax,lin?'Magnitudo (linear)':'Magnitudo (dB)');
+    $('st').textContent=`Fs = ${fs} Hz · ${d.t.length} frame · ${d.f.length} bin · resolusi ≈ ${d.df.toFixed(1)} Hz`+(audio?` · sumber: ${audio.name} (total ${(audio.len/fs).toFixed(1)} s)`:' · sumber: sinyal sintetis');
+  }catch(e){$('st').textContent='Error: '+e.message;}
 }
-document.getElementById('sig').onchange=()=>{cur=null;run();};
-document.getElementById('win').onchange=run;
-document.getElementById('file').onchange=async e=>{
-  const f=e.target.files[0];if(!f)return;
-  try{const ctx=new (window.AudioContext||window.webkitAudioContext)();
-    const buf=await ctx.decodeAudioData(await f.arrayBuffer());
-    const fs=buf.sampleRate,len=Math.min(buf.length,fs*6);
-    cur={x:buf.getChannelData(0).slice(0,len),fs};run();
-  }catch(err){document.getElementById('st').textContent='Gagal membaca audio: '+err.message;}
-};
+const sched=()=>{$('cust').hidden=$('cs').value!=='custom';clearTimeout(timer);timer=setTimeout(run,120);};
+document.querySelectorAll('input:not([type=file]),select').forEach(el=>el.addEventListener('input',sched));
+$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+  $('st').textContent='Membaca '+f.name+'…';
+  try{const ctx=new (window.AudioContext||window.webkitAudioContext)();const buf=await ctx.decodeAudioData(await f.arrayBuffer());
+    const n=buf.length,ch=buf.numberOfChannels,x=new Float32Array(n);
+    for(let c=0;c<ch;c++){const d=buf.getChannelData(c);for(let i=0;i<n;i++)x[i]+=d[i]/ch;}
+    audio={x,fs:buf.sampleRate,name:f.name,len:n};ctx.close();run();
+  }catch(err){$('st').textContent='Gagal membaca "'+f.name+'". Browser mungkin tidak mendukung codec atau file tidak punya jalur audio. Coba WAV/MP3/M4A. ('+(err&&err.message||err)+')';}};
+$('clr').onclick=()=>{audio=null;$('file').value='';run();};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',run);
 run();
 </script>
 </body>
